@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model City {
+  id           Int             @id @default(autoincrement())
+  name         String
+  country      String
+  latitude     Float
+  longitude    Float
+  nwsStationId String?
+  timezone     String          @default("UTC")
+  weatherRecords WeatherRecord[]
+  markets      Market[]
+  signals      Signal[]
+}
+
+model WeatherRecord {
+  id                      Int      @id @default(autoincrement())
+  cityId                  Int
+  timestamp               DateTime
+  temperature             Float
+  humidity                Float?
+  windSpeed               Float?
+  precipitationProbability Float?
+  isForecast              Boolean  @default(true)
+  city                    City     @relation(fields: [cityId], references: [id])
+
+  @@index([cityId, timestamp])
+}
+
+model Market {
+  id             Int          @id @default(autoincrement())
+  cityId         Int
+  description    String
+  condition      String
+  polymarketSlug String
+  city           City         @relation(fields: [cityId], references: [id])
+  prices         MarketPrice[]
+  signals        Signal[]
+
+  @@index([cityId])
+}
+
+model MarketPrice {
+  id        Int      @id @default(autoincrement())
+  marketId  Int
+  timestamp DateTime
+  price     Float
+  market    Market   @relation(fields: [marketId], references: [id])
+
+  @@index([marketId, timestamp])
+}
+
+model Signal {
+  id             Int      @id @default(autoincrement())
+  cityId         Int
+  marketId       Int
+  timestamp      DateTime
+  myProbability  Float
+  marketPrice    Float
+  edge           Float
+  city           City     @relation(fields: [cityId], references: [id])
+  market         Market   @relation(fields: [marketId], references: [id])
+
+  @@index([cityId, timestamp])
+  @@index([edge])
+}

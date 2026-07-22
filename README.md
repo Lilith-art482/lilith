@@ -39,7 +39,7 @@ npm run dev
 4. Выполните деплой.
 5. Прогоните миграции БД: `npx prisma migrate deploy`
 6. Заполните города: `npx tsx prisma/seed.ts`
-7. Cron-задача `/api/cron/update-data` будет запускаться каждые 6 часов автоматически.
+7. Cron-задача `/api/cron/update-data` будет запускаться ежедневно в 6:00 UTC автоматически.
 
 ## Переменные окружения
 

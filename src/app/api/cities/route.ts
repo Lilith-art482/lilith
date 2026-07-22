@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server"
-import { adminDb } from "@/lib/firebaseAdmin"
+import { db } from "@/lib/firebase"
 import { serializeDoc } from "@/lib/serialize"
 import { ensureSeeded } from "@/lib/seed"
+import { collection, getDocs, orderBy, query } from "firebase/firestore"
 
 export async function GET() {
   try {
     await ensureSeeded()
-    const snapshot = await adminDb.collection("cities").orderBy("name", "asc").get()
+    const q = query(collection(db, "cities"), orderBy("name", "asc"))
+    const snapshot = await getDocs(q)
     const cities = snapshot.docs.map(serializeDoc).filter(Boolean)
     return NextResponse.json(cities)
   } catch (error) {

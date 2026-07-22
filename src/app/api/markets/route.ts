@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { adminDb } from "@/lib/firebaseAdmin"
+import { db } from "@/lib/firebase"
 import { serializeDoc } from "@/lib/serialize"
 import { ensureSeeded } from "@/lib/seed"
+import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from "firebase/firestore"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -10,21 +11,21 @@ export async function GET(request: NextRequest) {
   try {
     await ensureSeeded()
 
-    let marketsQuery: FirebaseFirestore.Query = adminDb.collection("markets")
+    let marketsQ = collection(db, "markets")
     if (cityId) {
-      marketsQuery = marketsQuery.where("cityId", "==", cityId)
+      marketsQ = query(marketsQ, where("cityId", "==", cityId)) as typeof marketsQ
     }
 
-    const marketsSnapshot = await marketsQuery.get()
+    const marketsSnapshot = await getDocs(marketsQ)
     const markets = await Promise.all(
       marketsSnapshot.docs.map(async (marketDoc) => {
-        const pricesSnapshot = await adminDb
-          .collection("marketPrices")
-          .where("marketId", "==", marketDoc.id)
-          .orderBy("timestamp", "desc")
-          .limit(168)
-          .get()
-
+        const pricesQ = query(
+          collection(db, "marketPrices"),
+          where("marketId", "==", marketDoc.id),
+          orderBy("timestamp", "desc"),
+          firestoreLimit(168)
+        )
+        const pricesSnapshot = await getDocs(pricesQ)
         const prices = pricesSnapshot.docs.map(serializeDoc).filter(Boolean)
 
         return {

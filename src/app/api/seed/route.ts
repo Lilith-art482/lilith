@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { Timestamp } from "firebase-admin/firestore"
-import { adminDb } from "@/lib/firebaseAdmin"
+import { db, Timestamp } from "@/lib/firebase"
 import { CITIES } from "@/lib/cities"
+import { collection, getDocs, query, limit, doc, setDoc, addDoc } from "firebase/firestore"
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization")
@@ -12,7 +12,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const existing = await adminDb.collection("cities").limit(1).get()
+    const q = query(collection(db, "cities"), limit(1))
+    const existing = await getDocs(q)
     if (!existing.empty) {
       return NextResponse.json({ error: "Database already seeded" }, { status: 400 })
     }
@@ -21,8 +22,8 @@ export async function POST(request: NextRequest) {
     let marketCount = 0
 
     for (const cityData of CITIES) {
-      const cityRef = adminDb.collection("cities").doc()
-      await cityRef.set({
+      const cityRef = doc(collection(db, "cities"))
+      await setDoc(cityRef, {
         name: cityData.name,
         country: cityData.country,
         latitude: cityData.latitude,
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       ]
 
       for (const template of templates) {
-        await adminDb.collection("markets").add({
+        await addDoc(collection(db, "markets"), {
           cityId: cityRef.id,
           ...template,
           createdAt: Timestamp.now(),

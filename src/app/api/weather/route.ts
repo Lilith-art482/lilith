@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { adminDb } from "@/lib/firebaseAdmin"
+import { db } from "@/lib/firebase"
 import { serializeDoc } from "@/lib/serialize"
 import { ensureSeeded } from "@/lib/seed"
+import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -14,13 +15,13 @@ export async function GET(request: NextRequest) {
   try {
     await ensureSeeded()
 
-    const snapshot = await adminDb
-      .collection("weatherRecords")
-      .where("cityId", "==", cityId)
-      .orderBy("timestamp", "desc")
-      .limit(168)
-      .get()
-
+    const q = query(
+      collection(db, "weatherRecords"),
+      where("cityId", "==", cityId),
+      orderBy("timestamp", "desc"),
+      limit(168)
+    )
+    const snapshot = await getDocs(q)
     const records = snapshot.docs.map(serializeDoc).filter(Boolean)
     return NextResponse.json(records)
   } catch (error) {

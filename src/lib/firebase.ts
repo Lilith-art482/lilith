@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from "firebase/app"
-import { getFirestore } from "firebase/firestore"
+import { getFirestore, Timestamp } from "firebase/firestore"
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyATYqYWKAyT4Y5Y2hOzU6FwuCM4aPITS1g",
@@ -13,3 +13,5 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
 export const db = getFirestore(app)
+export { Timestamp }
+export type { DocumentSnapshot } from "firebase/firestore"

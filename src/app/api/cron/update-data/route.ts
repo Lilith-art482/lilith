@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { Timestamp } from "firebase-admin/firestore"
-import { adminDb } from "@/lib/firebaseAdmin"
+import { db, Timestamp } from "@/lib/firebase"
 import { getForecast, getNwsForecast } from "@/lib/weatherService"
 import { getHistoricalForecasts, calculateHistoricalStdDev } from "@/lib/openMeteoService"
 import { getMarketPrices } from "@/lib/polymarketService"
 import { calculateMyProbability, calculateEdge } from "@/lib/signalCalculator"
 import { ensureSeeded } from "@/lib/seed"
+import {
+  collection, getDocs, doc, setDoc, addDoc,
+  query, where, writeBatch,
+} from "firebase/firestore"
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization")
@@ -17,7 +20,7 @@ export async function POST(request: NextRequest) {
 
   try {
     await ensureSeeded()
-    const citiesSnapshot = await adminDb.collection("cities").get()
+    const citiesSnapshot = await getDocs(collection(db, "cities"))
     const results: string[] = []
 
     for (const cityDoc of citiesSnapshot.docs) {
@@ -37,9 +40,9 @@ export async function POST(request: NextRequest) {
         }
         const limitedForecast = forecast.slice(0, 168)
 
-        const batch = adminDb.batch()
+        const batch = writeBatch(db)
         for (const data of limitedForecast) {
-          const ref = adminDb.collection("weatherRecords").doc()
+          const ref = doc(collection(db, "weatherRecords"))
           batch.set(ref, {
             cityId: city.id,
             timestamp: Timestamp.fromDate(data.timestamp),
@@ -62,18 +65,16 @@ export async function POST(request: NextRequest) {
         }))
         const stdDev = calculateHistoricalStdDev(historicalData, currentForecast)
 
-        const marketsSnapshot = await adminDb
-          .collection("markets")
-          .where("cityId", "==", city.id)
-          .get()
+        const marketsQ = query(collection(db, "markets"), where("cityId", "==", city.id))
+        const marketsSnapshot = await getDocs(marketsQ)
 
-        const signalBatch = adminDb.batch()
+        const signalBatch = writeBatch(db)
         for (const marketDoc of marketsSnapshot.docs) {
           const marketData = marketDoc.data()
           const polymarketPrice = await getMarketPrices(marketData.polymarketSlug || "")
 
           if (polymarketPrice) {
-            const priceRef = adminDb.collection("marketPrices").doc()
+            const priceRef = doc(collection(db, "marketPrices"))
             signalBatch.set(priceRef, {
               marketId: marketDoc.id,
               timestamp: Timestamp.fromDate(polymarketPrice.timestamp),
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
           const marketPrice = polymarketPrice?.price ?? 0.5
           const edge = calculateEdge(myProb, marketPrice)
 
-          const signalRef = adminDb.collection("signals").doc()
+          const signalRef = doc(collection(db, "signals"))
           signalBatch.set(signalRef, {
             cityId: city.id,
             marketId: marketDoc.id,

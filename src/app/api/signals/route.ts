@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
-import { adminDb } from "@/lib/firebaseAdmin"
+import { db } from "@/lib/firebase"
 import { ensureSeeded } from "@/lib/seed"
+import { collection, getDocs, query, orderBy, limit, doc, getDoc } from "firebase/firestore"
 
 export const revalidate = 0
 
@@ -8,28 +9,32 @@ export async function GET() {
   try {
     await ensureSeeded()
 
-    const snapshot = await adminDb
-      .collection("signals")
-      .orderBy("edge", "desc")
-      .limit(100)
-      .get()
+    const q = query(collection(db, "signals"), orderBy("edge", "desc"), limit(100))
+    const snapshot = await getDocs(q)
 
     if (snapshot.empty) {
       return NextResponse.json([])
+    }
+
+    function toDate(v: unknown): string {
+      if (v && typeof v === "object" && "toDate" in v) {
+        return (v as { toDate: () => Date }).toDate().toISOString()
+      }
+      return String(v)
     }
 
     const signals = await Promise.all(
       snapshot.docs.map(async (signalDoc) => {
         const data = signalDoc.data()
 
-        const cityDoc = await adminDb.collection("cities").doc(data.cityId).get()
-        const city = cityDoc.exists
-          ? { name: cityDoc.data()?.name, country: cityDoc.data()?.country }
+        const citySnap = await getDoc(doc(db, "cities", data.cityId))
+        const city = citySnap.exists()
+          ? { name: citySnap.data()?.name, country: citySnap.data()?.country }
           : { name: "Unknown", country: "" }
 
-        const marketDoc = await adminDb.collection("markets").doc(data.marketId).get()
-        const market = marketDoc.exists
-          ? { condition: marketDoc.data()?.condition, description: marketDoc.data()?.description }
+        const marketSnap = await getDoc(doc(db, "markets", data.marketId))
+        const market = marketSnap.exists()
+          ? { condition: marketSnap.data()?.condition, description: marketSnap.data()?.description }
           : { condition: "unknown", description: "Unknown" }
 
         return {
@@ -38,7 +43,7 @@ export async function GET() {
           myProbability: data.myProbability,
           marketPrice: data.marketPrice,
           edge: data.edge,
-          timestamp: data.timestamp?.toDate?.()?.toISOString() || data.timestamp,
+          timestamp: toDate(data.timestamp),
           city,
           market,
         }

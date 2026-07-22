@@ -1,14 +1,15 @@
-import { Timestamp } from "firebase-admin/firestore"
-import { adminDb } from "@/lib/firebaseAdmin"
+import { db, Timestamp } from "@/lib/firebase"
 import { CITIES } from "@/lib/cities"
+import { doc, setDoc, addDoc, collection, getDocs, limit, query } from "firebase/firestore"
 
 export async function ensureSeeded() {
-  const snapshot = await adminDb.collection("cities").limit(1).get()
+  const q = query(collection(db, "cities"), limit(1))
+  const snapshot = await getDocs(q)
   if (!snapshot.empty) return false
 
   for (const cityData of CITIES) {
-    const cityRef = adminDb.collection("cities").doc()
-    await cityRef.set({
+    const cityRef = doc(collection(db, "cities"))
+    await setDoc(cityRef, {
       name: cityData.name,
       country: cityData.country,
       latitude: cityData.latitude,
@@ -24,7 +25,7 @@ export async function ensureSeeded() {
     ]
 
     for (const template of templates) {
-      await adminDb.collection("markets").add({
+      await addDoc(collection(db, "markets"), {
         cityId: cityRef.id,
         ...template,
         createdAt: Timestamp.now(),

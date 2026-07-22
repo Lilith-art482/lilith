@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { adminDb } from "@/lib/firebaseAdmin"
 import { serializeDoc } from "@/lib/serialize"
+import { ensureSeeded } from "@/lib/seed"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -11,6 +12,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    await ensureSeeded()
+
     const snapshot = await adminDb
       .collection("weatherRecords")
       .where("cityId", "==", cityId)

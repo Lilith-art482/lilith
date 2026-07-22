@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { adminDb } from "@/lib/firebaseAdmin"
 import { serializeDoc } from "@/lib/serialize"
+import { ensureSeeded } from "@/lib/seed"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const cityId = searchParams.get("cityId")
 
   try {
+    await ensureSeeded()
+
     let marketsQuery: FirebaseFirestore.Query = adminDb.collection("markets")
     if (cityId) {
       marketsQuery = marketsQuery.where("cityId", "==", cityId)

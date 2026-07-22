@@ -5,6 +5,7 @@ import { getForecast, getNwsForecast } from "@/lib/weatherService"
 import { getHistoricalForecasts, calculateHistoricalStdDev } from "@/lib/openMeteoService"
 import { getMarketPrices } from "@/lib/polymarketService"
 import { calculateMyProbability, calculateEdge } from "@/lib/signalCalculator"
+import { ensureSeeded } from "@/lib/seed"
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization")
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    await ensureSeeded()
     const citiesSnapshot = await adminDb.collection("cities").get()
     const results: string[] = []
 

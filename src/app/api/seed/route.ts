@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { Timestamp } from "firebase-admin/firestore"
 import { adminDb } from "@/lib/firebaseAdmin"
 import { CITIES } from "@/lib/cities"
 
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
         latitude: cityData.latitude,
         longitude: cityData.longitude,
         timezone: cityData.timezone,
-        createdAt: adminDb.Timestamp.now(),
+        createdAt: Timestamp.now(),
       })
       cityCount++
 
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
         await adminDb.collection("markets").add({
           cityId: cityRef.id,
           ...template,
-          createdAt: adminDb.Timestamp.now(),
+          createdAt: Timestamp.now(),
         })
         marketCount++
       }

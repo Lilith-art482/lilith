@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { Timestamp } from "firebase-admin/firestore"
 import { adminDb } from "@/lib/firebaseAdmin"
 import { getForecast } from "@/lib/weatherService"
 import { getHistoricalForecasts, getOpenMeteoForecast, calculateHistoricalStdDev } from "@/lib/openMeteoService"
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
           const ref = adminDb.collection("weatherRecords").doc()
           batch.set(ref, {
             cityId: city.id,
-            timestamp: adminDb.Timestamp.fromDate(data.timestamp),
+            timestamp: Timestamp.fromDate(data.timestamp),
             temperature: data.temperature,
             humidity: data.humidity,
             windSpeed: data.windSpeed,
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
             const priceRef = adminDb.collection("marketPrices").doc()
             signalBatch.set(priceRef, {
               marketId: marketDoc.id,
-              timestamp: adminDb.Timestamp.fromDate(polymarketPrice.timestamp),
+              timestamp: Timestamp.fromDate(polymarketPrice.timestamp),
               price: polymarketPrice.price,
             })
           }
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
           signalBatch.set(signalRef, {
             cityId: city.id,
             marketId: marketDoc.id,
-            timestamp: adminDb.Timestamp.now(),
+            timestamp: Timestamp.now(),
             myProbability: myProb,
             marketPrice,
             edge,

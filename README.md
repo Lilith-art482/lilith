@@ -7,8 +7,7 @@
 - **Next.js 14** (App Router + TypeScript)
 - **Tailwind CSS** — стили
 - **Chart.js** — графики
-- **Prisma ORM** — работа с БД
-- **Vercel Postgres / Supabase** — база данных
+- **Firebase Firestore** — база данных
 - **Vercel Cron Jobs** — фоновое обновление данных
 
 ## Источники данных
@@ -21,10 +20,6 @@
 
 ```bash
 npm install
-cp .env.local.example .env.local
-# отредактируйте .env.local — укажите DATABASE_URL
-npx prisma migrate dev
-npx tsx prisma/seed.ts
 npm run dev
 ```
 
@@ -33,21 +28,28 @@ npm run dev
 1. Создайте репозиторий на GitHub и загрузите код.
 2. Подключите репозиторий в [Vercel](https://vercel.com).
 3. В настройках проекта Vercel добавьте переменные окружения:
-   - `DATABASE_URL` — строка подключения к Vercel Postgres или Supabase
-   - `CRON_SECRET` — секретный токен для защиты cron-эндпоинта
+   - `NEXT_PUBLIC_FIREBASE_API_KEY`
+   - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+   - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+   - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+   - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+   - `NEXT_PUBLIC_FIREBASE_APP_ID`
+   - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
+   - `FIREBASE_SERVICE_ACCOUNT` — JSON-ключ сервисного аккаунта Firebase Admin SDK
+   - `CRON_SECRET` — секретный токен для защиты cron/seed эндпоинтов
    - `USER_AGENT` — User-Agent для запросов к weather.gov API
 4. Выполните деплой.
-5. Прогоните миграции БД: `npx prisma migrate deploy`
-6. Заполните города: `npx tsx prisma/seed.ts`
-7. Cron-задача `/api/cron/update-data` будет запускаться ежедневно в 6:00 UTC автоматически.
+5. Заполните базу: `curl -X POST https://your-site.vercel.app/api/seed -H "Authorization: Bearer ваш-cron-secret"`
+6. Cron-задача `/api/cron/update-data` будет запускаться ежедневно в 6:00 UTC.
 
 ## Переменные окружения
 
 | Переменная | Описание |
 |---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `CRON_SECRET` | Secret token for cron endpoint auth |
-| `USER_AGENT` | User-Agent for weather.gov API |
+| `NEXT_PUBLIC_FIREBASE_*` | Firebase Web App config (публичные) |
+| `FIREBASE_SERVICE_ACCOUNT` | JSON сервисного аккаунта Firebase Admin |
+| `CRON_SECRET` | Secret token for cron/seed endpoint auth |
+| `USER_AGENT` | User-Agent для weather.gov API |
 
 ## API Endpoints
 
@@ -55,7 +57,8 @@ npm run dev
 - `GET /api/weather?cityId=N` — прогноз погоды для города
 - `GET /api/markets?cityId=N` — рыночные цены для города
 - `GET /api/cities` — список городов
-- `POST /api/cron/update-data` — ручной запуск обновления данных (cron)
+- `POST /api/seed` — заполнить БД городами и рынками (требуется CRON_SECRET)
+- `POST /api/cron/update-data` — обновить данные (cron)
 
 ## Города
 

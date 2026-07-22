@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { adminDb } from "@/lib/firebaseAdmin"
+import { serializeDoc } from "@/lib/serialize"
 
 export async function GET() {
   try {
-    const cities = await prisma.city.findMany({
-      include: { markets: true },
-    })
+    const snapshot = await adminDb.collection("cities").orderBy("name", "asc").get()
+    const cities = snapshot.docs.map(serializeDoc).filter(Boolean)
     return NextResponse.json(cities)
   } catch (error) {
     console.error("Error fetching cities:", error)

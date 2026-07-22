@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { adminDb } from "@/lib/firebaseAdmin"
+import { serializeDoc } from "@/lib/serialize"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -10,12 +11,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const records = await prisma.weatherRecord.findMany({
-      where: { cityId: parseInt(cityId, 10) },
-      orderBy: { timestamp: "desc" },
-      take: 168,
-    })
+    const snapshot = await adminDb
+      .collection("weatherRecords")
+      .where("cityId", "==", cityId)
+      .orderBy("timestamp", "desc")
+      .limit(168)
+      .get()
 
+    const records = snapshot.docs.map(serializeDoc).filter(Boolean)
     return NextResponse.json(records)
   } catch (error) {
     console.error("Error fetching weather:", error)

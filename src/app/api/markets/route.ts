@@ -1,22 +1,35 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { adminDb } from "@/lib/firebaseAdmin"
+import { serializeDoc } from "@/lib/serialize"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const cityId = searchParams.get("cityId")
 
   try {
-    const where = cityId ? { cityId: parseInt(cityId, 10) } : {}
+    let marketsQuery: FirebaseFirestore.Query = adminDb.collection("markets")
+    if (cityId) {
+      marketsQuery = marketsQuery.where("cityId", "==", cityId)
+    }
 
-    const markets = await prisma.market.findMany({
-      where,
-      include: {
-        prices: {
-          orderBy: { timestamp: "desc" },
-          take: 168,
-        },
-      },
-    })
+    const marketsSnapshot = await marketsQuery.get()
+    const markets = await Promise.all(
+      marketsSnapshot.docs.map(async (marketDoc) => {
+        const pricesSnapshot = await adminDb
+          .collection("marketPrices")
+          .where("marketId", "==", marketDoc.id)
+          .orderBy("timestamp", "desc")
+          .limit(168)
+          .get()
+
+        const prices = pricesSnapshot.docs.map(serializeDoc).filter(Boolean)
+
+        return {
+          ...serializeDoc(marketDoc),
+          prices,
+        }
+      })
+    )
 
     return NextResponse.json(markets)
   } catch (error) {

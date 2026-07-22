@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { adminDb } from "@/lib/firebaseAdmin"
 import { getForecast } from "@/lib/weatherService"
 import { getHistoricalForecasts, getOpenMeteoForecast, calculateHistoricalStdDev } from "@/lib/openMeteoService"
-import { getMarketPrices, MARKET_TEMPLATES } from "@/lib/polymarketService"
+import { getMarketPrices } from "@/lib/polymarketService"
 import { calculateMyProbability, calculateEdge } from "@/lib/signalCalculator"
 
 export async function POST(request: NextRequest) {
@@ -14,44 +14,56 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const cities = await prisma.city.findMany()
+    const citiesSnapshot = await adminDb.collection("cities").get()
     const results: string[] = []
 
-    for (const city of cities) {
+    for (const cityDoc of citiesSnapshot.docs) {
+      const city = { id: cityDoc.id, ...cityDoc.data() } as {
+        id: string
+        name: string
+        latitude: number
+        longitude: number
+      }
+
       try {
         const forecast = await getForecast(city.latitude, city.longitude)
         const limitedForecast = forecast.slice(0, 168)
 
+        const batch = adminDb.batch()
         for (const data of limitedForecast) {
-          await prisma.weatherRecord.create({
-            data: {
-              cityId: city.id,
-              timestamp: data.timestamp,
-              temperature: data.temperature,
-              humidity: data.humidity,
-              windSpeed: data.windSpeed,
-              precipitationProbability: data.precipitationProbability,
-              isForecast: true,
-            },
+          const ref = adminDb.collection("weatherRecords").doc()
+          batch.set(ref, {
+            cityId: city.id,
+            timestamp: adminDb.Timestamp.fromDate(data.timestamp),
+            temperature: data.temperature,
+            humidity: data.humidity,
+            windSpeed: data.windSpeed,
+            precipitationProbability: data.precipitationProbability,
+            isForecast: true,
           })
         }
+        await batch.commit()
 
         const historicalData = await getHistoricalForecasts(city.latitude, city.longitude, 5)
         const currentForecast = await getOpenMeteoForecast(city.latitude, city.longitude, 7)
         const stdDev = calculateHistoricalStdDev(historicalData, currentForecast)
 
-        const markets = await prisma.market.findMany({ where: { cityId: city.id } })
+        const marketsSnapshot = await adminDb
+          .collection("markets")
+          .where("cityId", "==", city.id)
+          .get()
 
-        for (const market of markets) {
-          const polymarketPrice = await getMarketPrices(market.polymarketSlug)
+        const signalBatch = adminDb.batch()
+        for (const marketDoc of marketsSnapshot.docs) {
+          const marketData = marketDoc.data()
+          const polymarketPrice = await getMarketPrices(marketData.polymarketSlug || "")
 
           if (polymarketPrice) {
-            await prisma.marketPrice.create({
-              data: {
-                marketId: market.id,
-                timestamp: polymarketPrice.timestamp,
-                price: polymarketPrice.price,
-              },
+            const priceRef = adminDb.collection("marketPrices").doc()
+            signalBatch.set(priceRef, {
+              marketId: marketDoc.id,
+              timestamp: adminDb.Timestamp.fromDate(polymarketPrice.timestamp),
+              price: polymarketPrice.price,
             })
           }
 
@@ -60,19 +72,19 @@ export async function POST(request: NextRequest) {
           const marketPrice = polymarketPrice?.price ?? 0.5
           const edge = calculateEdge(myProb, marketPrice)
 
-          await prisma.signal.create({
-            data: {
-              cityId: city.id,
-              marketId: market.id,
-              timestamp: new Date(),
-              myProbability: myProb,
-              marketPrice,
-              edge,
-            },
+          const signalRef = adminDb.collection("signals").doc()
+          signalBatch.set(signalRef, {
+            cityId: city.id,
+            marketId: marketDoc.id,
+            timestamp: adminDb.Timestamp.now(),
+            myProbability: myProb,
+            marketPrice,
+            edge,
           })
         }
+        await signalBatch.commit()
 
-        results.push(`${city.name}: OK (${forecast.length} records)`)
+        results.push(`${city.name}: OK (${limitedForecast.length} records)`)
       } catch (err) {
         console.error(`Error processing ${city.name}:`, err)
         results.push(`${city.name}: ERROR`)

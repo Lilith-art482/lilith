@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { Timestamp } from "firebase-admin/firestore"
 import { adminDb } from "@/lib/firebaseAdmin"
-import { getForecast } from "@/lib/weatherService"
-import { getHistoricalForecasts, getOpenMeteoForecast, calculateHistoricalStdDev } from "@/lib/openMeteoService"
+import { getForecast, getNwsForecast } from "@/lib/weatherService"
+import { getHistoricalForecasts, calculateHistoricalStdDev } from "@/lib/openMeteoService"
 import { getMarketPrices } from "@/lib/polymarketService"
 import { calculateMyProbability, calculateEdge } from "@/lib/signalCalculator"
 
@@ -22,12 +22,17 @@ export async function POST(request: NextRequest) {
       const city = { id: cityDoc.id, ...cityDoc.data() } as {
         id: string
         name: string
+        country: string
         latitude: number
         longitude: number
       }
 
       try {
-        const forecast = await getForecast(city.latitude, city.longitude)
+        let forecast = await getForecast(city.latitude, city.longitude)
+        if (city.country === "US") {
+          const nws = await getNwsForecast(city.latitude, city.longitude)
+          if (nws) forecast = nws
+        }
         const limitedForecast = forecast.slice(0, 168)
 
         const batch = adminDb.batch()
@@ -46,7 +51,13 @@ export async function POST(request: NextRequest) {
         await batch.commit()
 
         const historicalData = await getHistoricalForecasts(city.latitude, city.longitude, 5)
-        const currentForecast = await getOpenMeteoForecast(city.latitude, city.longitude, 7)
+        const currentForecast = forecast.map((f) => ({
+          time: f.timestamp.toISOString(),
+          temperature: f.temperature,
+          humidity: f.humidity,
+          precipitationProbability: f.precipitationProbability,
+          windSpeed: f.windSpeed,
+        }))
         const stdDev = calculateHistoricalStdDev(historicalData, currentForecast)
 
         const marketsSnapshot = await adminDb

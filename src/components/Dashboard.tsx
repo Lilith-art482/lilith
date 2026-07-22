@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import CityModal from "./CityModal"
+import CityModal from "@/components/CityModal"
 
 interface Signal {
   id: number
@@ -30,8 +30,9 @@ export default function Dashboard() {
   const fetchSignals = useCallback(async () => {
     try {
       const res = await fetch("/api/signals")
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      setSignals(data)
+      if (Array.isArray(data)) setSignals(data)
     } catch (err) {
       console.error("Failed to fetch signals:", err)
     } finally {
@@ -73,7 +74,7 @@ export default function Dashboard() {
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Weather Polymarket Dashboard</h1>
         <p className="text-gray-400">
-          Monitoring weather markets across {new Set(signals.map((s) => s.city.name)).size} cities
+          Monitoring weather markets across {signals.length > 0 ? new Set(signals.map((s) => s.city.name)).size : 0} cities
         </p>
       </header>
 

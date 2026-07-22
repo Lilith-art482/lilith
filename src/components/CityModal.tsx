@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import WeatherChart from "./WeatherChart"
-import PriceChart from "./PriceChart"
+import WeatherChart from "@/components/WeatherChart"
+import PriceChart from "@/components/PriceChart"
 
 interface ModalProps {
   cityId: number
